@@ -346,19 +346,19 @@ if __name__ == '__main__':
     with (po.namedir() / 'option.yml').open('w') as f:
         hpt.dump(f)
 
-    if hpt.general.num_experiments == 1:
-        main(hpt)
-    else:
-        metrics = []
-        for experiment_idx in range(hpt.general.num_experiments):
-            logger.info('Trial [{}/{}] start'.format(
-                experiment_idx + 1, hpt.general.num_experiments))
-            if experiment_idx > 0:
-                hpt['general']['noplot'] = True
-            metrics.append(main(hpt))
-        metrics = pd.DataFrame(metrics)
-        logger.info('Total result:')
-        for name in metrics.columns:
-            logger.info('{}: {:.4f} \\pm {:.4f}'.format(
-                name, metrics[name].mean(), metrics[name].std()))
-        metrics.to_csv((po.logsdir() / 'metrics.tsv').as_posix(), sep='\t')
+    # if hpt.general.num_experiments == 1:
+    #     main(hpt)
+    # else:
+    metrics = []
+    for experiment_idx in range(hpt.general.num_experiments):
+        logger.info('Trial [{}/{}] start'.format(
+            experiment_idx + 1, hpt.general.num_experiments))
+        if experiment_idx > 0:
+            hpt['general']['noplot'] = True
+        metrics.append(main(hpt))
+    metrics = pd.DataFrame(metrics)
+    logger.info('Total result:')
+    for name in metrics.columns:
+        logger.info('{}: {:.4f}'.format(name, metrics[name].mean()))
+        # logger.info('{}: {:.4f} \\pm {:.4f}'.format(name, metrics[name].mean(), metrics[name].std()))
+    metrics.to_csv((po.logsdir() / 'metrics.tsv').as_posix(), sep='\t')

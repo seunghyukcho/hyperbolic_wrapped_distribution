@@ -1,6 +1,6 @@
 general:
   name:  # <name:str> experiment name
-  gpu: -1  # <-g,--gpu:int> GPU ID (negative value indicates CPU)
+  gpu: 0  # <-g,--gpu:int> GPU ID (negative value indicates CPU)
   test: false  # set tiny datasets for quick tests
   num_experiments: 1
   noplot: false
