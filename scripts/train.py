@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import random
 import pathlib
 
 from tqdm import tqdm
@@ -12,7 +12,7 @@ from chainer import training
 from chainer.training import extensions
 from chainer.training import triggers
 
-from lib import models, dataset
+from lib import models, dataset, functions
 
 from lib.miscs.hyperparams import Hyperparams
 from lib.miscs import pathorganizer
@@ -38,7 +38,7 @@ def get_model(hpt):
 
 
 def evaluate(hpt, train, test, avg_elbo_loss):
-    if hpt.dataset.type in ('mnist', 'breakout'):
+    if hpt.dataset.type == 'mnist':
         with chainer.using_config('train', False), \
                 chainer.using_config('enable_backprop', False):
 
@@ -62,9 +62,55 @@ def evaluate(hpt, train, test, avg_elbo_loss):
             'Test LL': float(test_ll),
         }
 
+    elif hpt.dataset.type == 'breakout':
+        with chainer.using_config('train', False), \
+                chainer.using_config('enable_backprop', False):
+            test_iter = chainer.iterators.SerialIterator(test, TEST_BATCH_SIZE, repeat=False, shuffle=False)
+            labels = test[list(range(len(test)))][1]
+            zs = np.empty((0, hpt.model.n_latent + 1))
+
+            logger.info('calculate test ELBO/LL')
+            test_k = 500
+            test_elbo = 0
+            test_ll = 0
+            for batch in tqdm(test_iter, total=int(np.ceil(len(test) / TEST_BATCH_SIZE))):
+                x = [b[0] for b in batch]
+                x = avg_elbo_loss.xp.asarray(x)
+                test_elbo_, test_ll_ = avg_elbo_loss.get_elbo(
+                    x, 
+                    k=test_k, 
+                    with_ll=True
+                )
+                test_elbo += test_elbo_.array
+                test_ll += test_ll_.array
+
+                zs_ = avg_elbo_loss.encoder(x).mean.data.get()
+                zs = np.concatenate((zs, zs_), axis=0)
+
+            zs_enorm = functions.inv_pseudo_polar_projection(zs).data
+            zs_enorm = zs_enorm[..., 1:]
+            zs_enorm = np.sqrt((zs_enorm ** 2).sum(axis=-1))
+            test_enorm_correlation = np.corrcoef(zs_enorm, labels)[0, 1]
+
+            zs_lnorm = np.asarray(zs[..., 0].data)
+            test_lnorm_correlation = np.corrcoef(zs_lnorm, labels)[0, 1]
+
+            zs_pnorm = np.sqrt((zs_lnorm - 1) / (zs_lnorm + 1))
+            test_pnorm_correlation = np.corrcoef(zs_pnorm, labels)[0, 1]
+
+            test_elbo /= np.ceil(len(test) / TEST_BATCH_SIZE)
+            test_ll /= np.ceil(len(test) / TEST_BATCH_SIZE)
+
+        return {
+            'Test AvgELBO': float(test_elbo),
+            'Test LL': float(test_ll),
+            'Test ENorm': float(test_enorm_correlation),
+            'Test LNorm': float(test_lnorm_correlation),
+            'Test PNorm': float(test_pnorm_correlation)
+        }
+
     elif hpt.dataset.type == 'synthetic':
         from lib.dataset import binary_tree
-        from lib import functions
 
         with chainer.using_config('train', False), \
                 chainer.using_config('enable_backprop', False):
@@ -133,8 +179,9 @@ def visualize(hpt, train, test, avg_elbo_loss):
         save_images(
             x1.array, (po.imagesdir() / 'train_reconstructed').as_posix())
 
-        test_ind = [3, 2, 1, 18, 4, 8, 11, 17, 61]
-        x = chainer.Variable(np.asarray(test[test_ind]))
+        test_ind = random.sample(list(range(len(test))), 9) # np.random.choice(np.arange(9999), 9, replace=False)  # [3, 2, 1, 18, 4, 8, 11, 17, 61]
+        # print(test[test_ind])
+        x = chainer.Variable(np.asarray(test[test_ind][0]))
         with chainer.using_config('train', False), chainer.no_backprop_mode():
             x1 = avg_elbo_loss.decoder(
                 avg_elbo_loss.encoder(x).mean, n_batch_axes=1).mean

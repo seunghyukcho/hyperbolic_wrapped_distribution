@@ -9,11 +9,12 @@ N_TRAIN = 90000
 N_TEST = 10000
 
 
-def load_dataset(path='~/data/breakout/state_samples/breakout_states_v2.h5',
+def load_dataset(path='./data/breakout/breakout_states_v2.h5',
                  withlabel=True):
     with h5py.File(pathlib.Path(path).expanduser().as_posix(), 'r') as hf:
         X = hf['states'][:].astype(np.float32).transpose(0, 3, 1, 2) / 255.
         X = X[..., 2:-2, 2:-2]
+        X = (X - 0.5) * 2
         X_train = X[:N_TRAIN]
         X_test = X[N_TRAIN:]
         if withlabel:

@@ -56,10 +56,11 @@ def get_dataset(dataset_type, **kwargs):
         train, valid = datasets.split_dataset(train, 49000)
 
     elif dataset_type == 'breakout':
-        train, test = breakout.load_dataset(withlabel=False)
+        train, _ = breakout.load_dataset(withlabel=False)
+        _, test = breakout.load_dataset(withlabel=True)
         # scaling data from [0, 1] to [-1, 1]
-        train = 2 * (train - 0.5)
-        test = 2 * (test - 0.5)
+        # train = 2 * (train - 0.5)
+        # test = 2 * (test - 0.5)
         train, valid = datasets.split_dataset(train, 80000)
 
     elif dataset_type == 'wordnet':
